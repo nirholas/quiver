@@ -10,7 +10,8 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "e2e": "tsx scripts/e2e.ts"
+    "e2e": "tsx scripts/e2e.ts",
+    "simulate-fill": "tsx scripts/simulate-fill.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",

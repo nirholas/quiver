@@ -19,6 +19,14 @@ const ADDRESS_THIS = "0x0000000000000000000000000000000000000002" as const;
 const MSG_SENDER = "0x0000000000000000000000000000000000000001" as const;
 
 /**
+ * Robinhood Chain's UniversalRouter is a modified build: V2_SWAP_EXACT_IN and V3_SWAP_EXACT_IN take a sixth
+ * argument, `uint256[] minHopPriceX36` (per-hop minimum prices, empty = no per-hop check). Standard
+ * UniversalRouter encodings revert with SliceOutOfBounds() on this chain. We always append an empty array;
+ * the seller's floor is enforced by the settlement contract on the final delta.
+ */
+const NO_HOP_PRICE_CHECK: readonly bigint[] = [];
+
+/**
  * Compile a route set into the calls QuiverSettlement executes. One UniversalRouter.execute per route:
  * the settlement contract transfers the route's input to the router, every hop is paid from the router's
  * own balance (payerIsUser = false / SETTLE from CONTRACT_BALANCE), intermediate outputs stay in the router
@@ -49,10 +57,10 @@ export function buildInteractions(routes: Route[], minOutTotal: bigint, deadline
       if (hop.venue === "uniswap-v3") {
         commands.push(CMD_V3_SWAP_EXACT_IN);
         const path = encodePacked(["address", "uint24", "address"], [hin, hop.fee, hout]);
-        inputs.push(encodeAbiParameters([{ type: "address" }, { type: "uint256" }, { type: "uint256" }, { type: "bytes" }, { type: "bool" }], [recipient, amountIn, legMin, path, false]));
+        inputs.push(encodeAbiParameters([{ type: "address" }, { type: "uint256" }, { type: "uint256" }, { type: "bytes" }, { type: "bool" }, { type: "uint256[]" }], [recipient, amountIn, legMin, path, false, NO_HOP_PRICE_CHECK]));
       } else if (hop.venue === "uniswap-v2") {
         commands.push(CMD_V2_SWAP_EXACT_IN);
-        inputs.push(encodeAbiParameters([{ type: "address" }, { type: "uint256" }, { type: "uint256" }, { type: "address[]" }, { type: "bool" }], [recipient, amountIn, legMin, [hin, hout], false]));
+        inputs.push(encodeAbiParameters([{ type: "address" }, { type: "uint256" }, { type: "uint256" }, { type: "address[]" }, { type: "bool" }, { type: "uint256[]" }], [recipient, amountIn, legMin, [hin, hout], false, NO_HOP_PRICE_CHECK]));
       } else {
         commands.push(CMD_V4_SWAP);
         const key = hop.poolKey;
