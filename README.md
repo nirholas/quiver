@@ -1,4 +1,4 @@
-# Quiver
+# Quiver 
 
 **Intent-based swap aggregation for Robinhood Chain (`eip155:4663`).** Users sign what they want, solvers compete on how, and `QuiverSettlement` enforces the seller's minimum on-chain. Routes span Uniswap v2, v3 and v4 (the three venues with real liquidity on the chain), and a swap is one signature: a Permit2 witness transfer whose witness is the order.
 
