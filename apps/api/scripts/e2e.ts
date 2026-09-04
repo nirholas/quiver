@@ -6,6 +6,7 @@
  *
  *   pnpm --filter @quiverdex/api e2e
  */
+import { accessSync, constants } from "node:fs";
 import { spawn, execSync, type ChildProcess } from "node:child_process";
 import { createWalletClient, http, publicActions, parseEther, toHex, maxUint256, type Address } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -19,6 +20,19 @@ import { Watcher } from "../src/watcher.js";
 import type { ApiConfig } from "../src/config.js";
 import { createPublicClient, type PublicClient } from "viem";
 
+/** Foundry is not always on PATH in this environment; resolve the binary explicitly. */
+function foundryBin(name: string): string {
+  const candidates = [
+    ...(process.env.PATH ?? "").split(":").filter(Boolean).map((d) => `${d}/${name}`),
+    `${process.env.HOME ?? "/home/codespace"}/.foundry/bin/${name}`,
+  ];
+  for (const c of candidates) {
+    try { accessSync(c, constants.X_OK); return c; } catch { /* next */ }
+  }
+  throw new Error(`${name} not found on PATH or in ~/.foundry/bin`);
+}
+
+
 const UPSTREAM = process.env.RHC_MAINNET_RPC_URL ?? "https://rpc.mainnet.chain.robinhood.com";
 const ANVIL_PORT = 8600 + Math.floor(Math.random() * 300);
 const ANVIL = `http://127.0.0.1:${ANVIL_PORT}`;
@@ -26,6 +40,8 @@ const API_PORT = 4800 + Math.floor(Math.random() * 300);
 const children: ChildProcess[] = [];
 const kill = () => children.forEach((c) => c.kill("SIGKILL"));
 process.on("exit", kill);
+
+process.env.PATH = `${process.env.PATH ?? ""}:${process.env.HOME ?? "/home/codespace"}/.foundry/bin`;
 
 const rpc = async (m: string, p: unknown[]) => {
   const r = await fetch(ANVIL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: m, params: p }) });
@@ -37,9 +53,9 @@ const step = (m: string) => console.log(`\n▸ ${m}`);
 
 async function main() {
   step(`forking ${UPSTREAM} on :${ANVIL_PORT}`);
-  const anvil = spawn("anvil", ["--fork-url", UPSTREAM, "--port", String(ANVIL_PORT), "--silent", "--chain-id", String(CHAIN_ID)], { stdio: "ignore" });
+  const anvil = spawn(foundryBin("anvil"), ["--fork-url", UPSTREAM, "--port", String(ANVIL_PORT), "--silent", "--chain-id", String(CHAIN_ID)], { stdio: "ignore" });
   children.push(anvil);
-  for (let i = 0; i < 120; i++) { try { await rpc("eth_chainId", []); break; } catch { await new Promise((r) => setTimeout(r, 500)); } }
+  for (let i = 0; i < 240; i++) { try { await rpc("eth_chainId", []); break; } catch { await new Promise((r) => setTimeout(r, 500)); } }
 
   const deployerKey = generatePrivateKey();
   const solverKey = generatePrivateKey();
@@ -51,7 +67,7 @@ async function main() {
 
   step("deploying QuiverSettlement to the fork with the real deploy script");
   const out = execSync(
-    `forge script script/DeploySettlement.s.sol --rpc-url ${ANVIL} --broadcast --skip-simulation 2>&1`,
+    `${foundryBin("forge")} script script/DeploySettlement.s.sol --rpc-url ${ANVIL} --broadcast --skip-simulation 2>&1`,
     { cwd: new URL("../../../contracts", import.meta.url).pathname, env: { ...process.env, DEPLOYER_PRIVATE_KEY: deployerKey }, encoding: "utf8" },
   );
   const settlement = /(?:deployed|expected) QuiverSettlement (0x[0-9a-fA-F]{40})/.exec(out)?.[1] as Address | undefined;
