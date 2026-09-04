@@ -55,14 +55,6 @@ export const settlementAbi = parseAbi([
   "error InvalidFee()",
   "error InvalidPermit2()",
 ]);
-/** UniversalRouter, V3/V2 router modules, Permit2 and v4 errors, for decoding the bytes inside InteractionFailed. */
-export const routerErrorsAbi = parseAbi([
-  "error V3TooLittleReceived()", "error V3InvalidSwap()", "error V3InvalidCaller()", "error V3InvalidAmountOut()", "error V3TooMuchRequestedPerHop(uint256,uint256,uint256)",
-  "error V2TooLittleReceived()", "error V2InvalidPath()", "error InvalidCommandType(uint256)", "error ExecutionFailed(uint256 commandIndex, bytes message)",
-  "error TransactionDeadlinePassed()", "error InsufficientToken()", "error InsufficientETH()", "error SliceOutOfBounds()", "error LengthMismatch()", "error BalanceTooLow()",
-  "error InvalidSigner()", "error SignatureExpired(uint256)", "error InvalidNonce()", "error InvalidSignatureLength()",
-  "error CurrencyNotSettled()", "error DeltaNotPositive(address)", "error DeltaNotNegative(address)", "error NotPoolManager()",
-]);
 export const poolManagerInitializeEvent = parseAbi([
   "event Initialize(bytes32 indexed id, address indexed currency0, address indexed currency1, uint24 fee, int24 tickSpacing, address hooks, uint160 sqrtPriceX96, int24 tick)",
 ]);
