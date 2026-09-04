@@ -1,0 +1,14 @@
+{
+  "name": "@quiverdex/router",
+  "version": "0.1.0",
+  "description": "On-chain quoting and route search across Uniswap v2, v3 and v4 on Robinhood Chain, plus the interaction builders solvers use to execute a route through QuiverSettlement.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md"],
+  "scripts": { "build": "tsc -p tsconfig.json", "test": "vitest run", "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "peerDependencies": { "viem": "^2.0.0" },
+  "devDependencies": { "typescript": "^5.7.3", "vitest": "^3.0.0", "viem": "^2.48.0" }
+}

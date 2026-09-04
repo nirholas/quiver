@@ -1,0 +1,4 @@
+forge-std/=lib/forge-std/src/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+permit2/=lib/permit2/src/
+solmate/=lib/permit2/lib/solmate/

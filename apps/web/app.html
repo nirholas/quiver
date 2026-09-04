@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quiver Swap</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#0e1116;--panel:#151920;--line:#262c37;--ink:#e8ebf0;--dim:#8d95a5;--green:#4fd18b;--green-ink:#0d3b26;--red:#ef6b6b;--amber:#e9b25c;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;--sans:"Archivo",system-ui,sans-serif}
+@media (prefers-color-scheme:light){:root{--bg:#f4f5f8;--panel:#fff;--line:#dfe3ea;--ink:#12151b;--dim:#5b6373;--green:#1a7a4c;--green-ink:#e2f1e8;--red:#c43d3d;--amber:#a6640f}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans)}
+.wrap{max-width:520px;margin:0 auto;padding:28px 18px 60px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}header a{color:inherit;text-decoration:none;font-weight:800;font-size:18px;letter-spacing:-.02em}
+button{font:inherit;cursor:pointer}
+.btn{padding:10px 14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:4px;font-weight:600;font-size:13.5px}
+.btn.primary{background:var(--green);color:var(--green-ink);border-color:var(--green)}.btn:disabled{opacity:.5;cursor:not-allowed}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px}
+.row{display:grid;grid-template-columns:1fr 130px;gap:10px;align-items:center;margin-bottom:10px}
+input,select{font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:11px 12px;width:100%}
+input.amt{font-family:var(--mono);font-size:20px}
+.lbl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:8px 0 6px}
+.quote{font-family:var(--mono);font-size:13px;color:var(--dim);margin:12px 0;line-height:1.7}
+.quote b{color:var(--ink);font-size:20px;display:block}
+.edge{color:var(--green)}
+.status{margin-top:14px;font-family:var(--mono);font-size:12.5px;line-height:1.7;color:var(--dim);white-space:pre-wrap}
+.status .ok{color:var(--green)}.status .bad{color:var(--red)}.status .warn{color:var(--amber)}
+.flip{display:flex;justify-content:center;margin:-4px 0 6px}.flip button{border:1px solid var(--line);background:var(--bg);color:var(--dim);border-radius:50%;width:32px;height:32px}
+.hist{margin-top:22px}.hist table{width:100%;border-collapse:collapse;font-size:12.5px}.hist td{padding:6px 4px;border-bottom:1px solid var(--line);font-family:var(--mono)}
+.hint{font-size:12.5px;color:var(--dim);margin-top:10px}
+a{color:var(--green)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><a href="/">Quiver</a><button id="connect" class="btn">Connect wallet</button></header>
+
+<div class="card">
+  <div class="lbl">You sell</div>
+  <div class="row"><input id="amountIn" class="amt" inputmode="decimal" placeholder="0.0"><select id="tokenIn"></select></div>
+  <div class="flip"><button id="flip" title="Flip">⇅</button></div>
+  <div class="lbl">You receive (at least)</div>
+  <div class="row"><input id="amountOut" class="amt" readonly placeholder="0.0"><select id="tokenOut"></select></div>
+  <div class="quote" id="quote">Enter an amount to quote across Uniswap v2, v3 and v4 on Robinhood Chain.</div>
+  <button id="swap" class="btn primary" style="width:100%" disabled>Get quotes</button>
+  <div class="hint">Slippage floor <input id="slip" value="0.3" style="width:60px;display:inline;padding:4px 6px"> % below the winning solver bid. You sign once; nothing moves until a solver settles at or above your minimum.</div>
+  <div class="status" id="status"></div>
+</div>
+
+<div class="hist card" id="hist" hidden><div class="lbl">Your orders</div><table id="histTable"></table></div>
+<p class="hint">API: <span id="apiUrl" style="font-family:var(--mono)"></span> · chain 4663 · <a id="settlementLink" href="#">settlement</a></p>
+</div>
+
+<script type="module">
+import { createPublicClient, createWalletClient, custom, http, formatUnits, parseUnits, getAddress, maxUint256, encodeFunctionData } from "https://esm.sh/viem@2.31.7";
+
+const API = new URLSearchParams(location.search).get("api") || (location.hostname === "localhost" ? "http://localhost:4700" : location.origin.replace(/\/$/, "") + "/api");
+document.getElementById("apiUrl").textContent = API;
+const PERMIT2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
+const CHAIN = { id: 4663, name: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: ["https://rpc.mainnet.chain.robinhood.com"] } }, blockExplorers: { default: { name: "Blockscout", url: "https://robinhoodchain.blockscout.com" } } };
+const erc20 = [
+  { type: "function", name: "allowance", stateMutability: "view", inputs: [{ type: "address" }, { type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }] },
+];
+const orderTypes = {
+  PermitWitnessTransferFrom: [{ name: "permitted", type: "TokenPermissions" }, { name: "spender", type: "address" }, { name: "nonce", type: "uint256" }, { name: "deadline", type: "uint256" }, { name: "witness", type: "Order" }],
+  Order: [{ name: "seller", type: "address" }, { name: "sellToken", type: "address" }, { name: "buyToken", type: "address" }, { name: "sellAmount", type: "uint256" }, { name: "minBuyAmount", type: "uint256" }, { name: "receiver", type: "address" }, { name: "deadline", type: "uint256" }, { name: "exclusiveSolver", type: "address" }, { name: "exclusiveUntil", type: "uint256" }, { name: "appData", type: "bytes32" }],
+  TokenPermissions: [{ name: "token", type: "address" }, { name: "amount", type: "uint256" }],
+};
+const APP_DATA = "0x" + "71756976657220776562".padEnd(64, "0"); // "quiver web" tag
+
+const $ = (id) => document.getElementById(id);
+const statusEl = $("status");
+const log = (msg, cls = "") => { const line = document.createElement("div"); if (cls) line.className = cls; line.textContent = msg; statusEl.appendChild(line); statusEl.scrollTop = statusEl.scrollHeight; };
+const clearLog = () => (statusEl.textContent = "");
+
+let tokens = [], manifest, account, wallet;
+const pub = createPublicClient({ chain: CHAIN, transport: http() });
+
+async function boot() {
+  [tokens, manifest] = await Promise.all([fetch(`${API}/tokens`).then((r) => r.json()), fetch(`${API}/`).then((r) => r.json())]);
+  $("settlementLink").href = `${CHAIN.blockExplorers.default.url}/address/${manifest.settlement}`;
+  for (const sel of [$("tokenIn"), $("tokenOut")]) for (const t of tokens) sel.add(new Option(t.symbol, t.address));
+  $("tokenIn").value = tokens.find((t) => t.symbol === "WETH").address;
+  $("tokenOut").value = tokens.find((t) => t.symbol === "USDG").address;
+  $("swap").disabled = false;
+}
+const tok = (addr) => tokens.find((t) => t.address.toLowerCase() === addr.toLowerCase());
+
+let quoteTimer;
+function scheduleQuote() { clearTimeout(quoteTimer); quoteTimer = setTimeout(refreshQuote, 350); }
+let lastQuote;
+async function refreshQuote() {
+  const tin = tok($("tokenIn").value), tout = tok($("tokenOut").value);
+  const raw = $("amountIn").value.trim();
+  if (!raw || Number(raw) <= 0 || tin.address === tout.address) { $("amountOut").value = ""; return; }
+  const amountIn = parseUnits(raw, tin.decimals);
+  $("quote").textContent = "Quoting…";
+  try {
+    const q = await fetch(`${API}/quote?tokenIn=${tin.address}&tokenOut=${tout.address}&amountIn=${amountIn}`).then((r) => r.json());
+    lastQuote = q;
+    const out = BigInt(q.amountOut);
+    $("amountOut").value = formatUnits(out, tout.decimals);
+    const edge = q.bestDirect ? Number((out - BigInt(q.bestDirect.amountOut)) * 10000n / BigInt(q.bestDirect.amountOut)) / 100 : 0;
+    $("quote").innerHTML = `<b>${formatUnits(out, tout.decimals)} ${tout.symbol}</b>route: ${q.routes.map((r) => r.venues.join(" › ")).join(" + ")}<br>` +
+      (q.bestDirect ? `best single venue: ${formatUnits(BigInt(q.bestDirect.amountOut), tout.decimals)} (${q.bestDirect.venue})${edge > 0 ? ` <span class="edge">+${edge}% from aggregation</span>` : ""}` : "");
+  } catch (e) { $("quote").textContent = `Quote failed: ${e.message}`; }
+}
+
+async function connect() {
+  if (!window.ethereum) { log("No wallet found. Install MetaMask or the Robinhood Wallet extension.", "bad"); return; }
+  wallet = createWalletClient({ chain: CHAIN, transport: custom(window.ethereum) });
+  [account] = await wallet.requestAddresses();
+  try { await wallet.switchChain({ id: 4663 }); } catch { await wallet.addChain({ chain: CHAIN }); }
+  $("connect").textContent = account.slice(0, 6) + "…" + account.slice(-4);
+  loadHistory();
+}
+
+async function ensurePermit2Approval(token) {
+  const allowance = await pub.readContract({ address: token, abi: erc20, functionName: "allowance", args: [account, PERMIT2] });
+  if (allowance > 0n) return;
+  log("One-time approval: allowing Permit2 to move your " + tok(token).symbol + " (this is the only on-chain transaction you send).", "warn");
+  const hash = await wallet.writeContract({ account, address: token, abi: erc20, functionName: "approve", args: [PERMIT2, maxUint256] });
+  log("approve sent " + hash);
+  await pub.waitForTransactionReceipt({ hash });
+  log("approved", "ok");
+}
+
+async function swap() {
+  clearLog();
+  if (!account) await connect();
+  if (!account) return;
+  const tin = tok($("tokenIn").value), tout = tok($("tokenOut").value);
+  const amountIn = parseUnits($("amountIn").value.trim(), tin.decimals);
+  const bal = await pub.readContract({ address: tin.address, abi: erc20, functionName: "balanceOf", args: [account] });
+  if (bal < amountIn) { log(`Insufficient ${tin.symbol}: you hold ${formatUnits(bal, tin.decimals)}.`, "bad"); return; }
+  $("swap").disabled = true;
+  try {
+    await ensurePermit2Approval(tin.address);
+    log("Running solver auction (1.5s)…");
+    const rfq = await fetch(`${API}/rfq`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tokenIn: tin.address, tokenOut: tout.address, amountIn: amountIn.toString(), seller: account }) }).then((r) => r.json());
+    const baseline = BigInt(rfq.baseline.amountOut);
+    if (!rfq.best) { log("No solver bid. Posting an open order at the on-chain quote minus slippage; any solver may fill it.", "warn"); }
+    const bestOut = rfq.best ? BigInt(rfq.best.amountOut) : baseline;
+    log(`${rfq.bids.length} bid(s). Best: ${formatUnits(bestOut, tout.decimals)} ${tout.symbol}${rfq.best ? ` from ${rfq.best.solver.slice(0, 10)}…` : ""}${baseline ? ` (on-chain quote ${formatUnits(baseline, tout.decimals)})` : ""}`, "ok");
+    const slipBps = BigInt(Math.round(Number($("slip").value || "0.3") * 100));
+    const minBuy = (bestOut * (10000n - slipBps)) / 10000n;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const order = {
+      seller: getAddress(account), sellToken: tin.address, buyToken: tout.address, sellAmount: amountIn, minBuyAmount: minBuy, receiver: getAddress(account),
+      deadline: BigInt(nowSec + manifest.orderTtlSeconds), exclusiveSolver: rfq.best ? getAddress(rfq.best.solver) : "0x0000000000000000000000000000000000000000",
+      exclusiveUntil: rfq.best ? BigInt(rfq.best.exclusiveUntil) : 0n, appData: APP_DATA,
+    };
+    const nonceBytes = crypto.getRandomValues(new Uint8Array(32));
+    const permitNonce = BigInt("0x" + [...nonceBytes].map((b) => b.toString(16).padStart(2, "0")).join(""));
+    const permitDeadline = order.deadline;
+    log(`Sign to place: sell ${formatUnits(amountIn, tin.decimals)} ${tin.symbol}, receive ≥ ${formatUnits(minBuy, tout.decimals)} ${tout.symbol}, valid ${manifest.orderTtlSeconds}s.`);
+    const signature = await wallet.signTypedData({
+      account, domain: { name: "Permit2", chainId: 4663, verifyingContract: PERMIT2 }, types: orderTypes, primaryType: "PermitWitnessTransferFrom",
+      message: { permitted: { token: tin.address, amount: amountIn }, spender: manifest.settlement, nonce: permitNonce, deadline: permitDeadline, witness: order },
+    });
+    const ser = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === "bigint" ? v.toString() : v]));
+    const orderHash = await hashOrder(order);
+    const res = await fetch(`${API}/orders`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ order: ser(order), permitNonce: permitNonce.toString(), permitDeadline: permitDeadline.toString(), signature, orderHash, chainId: 4663, settlement: manifest.settlement, rfqId: rfq.rfqId }) }).then((r) => r.json());
+    if (res.error) throw new Error(res.error);
+    log(`Order ${orderHash.slice(0, 12)}… open. Waiting for the solver…`);
+    for (let i = 0; i < 90; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const s = await fetch(`${API}/orders/${orderHash}`).then((r) => r.json());
+      if (s.status === "filled") { log(`Filled: ${formatUnits(BigInt(s.buyAmount), tout.decimals)} ${tout.symbol} in ${s.txHash}`, "ok"); log(`${CHAIN.blockExplorers.default.url}/tx/${s.txHash}`); break; }
+      if (s.status !== "open") { log(`Order ${s.status}${s.failReason ? ": " + s.failReason : ""}. Nothing left your wallet.`, "bad"); break; }
+    }
+    loadHistory();
+  } catch (e) { log(e.shortMessage || e.message, "bad"); }
+  $("swap").disabled = false;
+}
+
+/** keccak(abi.encode(ORDER_TYPEHASH, ...)) computed with the API's help-free path: use viem's hashTypedData on the Order struct alone. */
+async function hashOrder(o) {
+  const { hashStruct } = await import("https://esm.sh/viem@2.31.7/utils");
+  return hashStruct({ data: o, primaryType: "Order", types: { Order: orderTypes.Order } });
+}
+
+async function loadHistory() {
+  if (!account) return;
+  const rows = await fetch(`${API}/orders?seller=${account}`).then((r) => r.json());
+  $("hist").hidden = rows.length === 0;
+  $("histTable").innerHTML = rows.map((r) => `<tr><td>${new Date(r.createdAt * 1000).toLocaleTimeString()}</td><td>${r.orderHash.slice(0, 12)}…</td><td class="${r.status === "filled" ? "ok" : ""}">${r.status}</td><td>${r.txHash ? `<a href="${CHAIN.blockExplorers.default.url}/tx/${r.txHash}">tx</a>` : ""}</td></tr>`).join("");
+}
+
+$("connect").onclick = connect;
+$("swap").onclick = swap;
+$("amountIn").oninput = scheduleQuote;
+$("tokenIn").onchange = scheduleQuote;
+$("tokenOut").onchange = scheduleQuote;
+$("flip").onclick = () => { const a = $("tokenIn").value; $("tokenIn").value = $("tokenOut").value; $("tokenOut").value = a; scheduleQuote(); };
+boot().catch((e) => log("API unreachable: " + e.message, "bad"));
+</script>
+</body>
+</html>

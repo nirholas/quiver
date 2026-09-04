@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quiver: intent-based swaps on Robinhood Chain</title>
+<meta name="description" content="Sign what you want. Solvers compete on how. The contract enforces your limit. Aggregated swaps across Uniswap v2, v3 and v4 on Robinhood Chain.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+<style>
+:root{--bg:#0e1116;--panel:#151920;--line:#252b36;--ink:#e8ebf0;--dim:#8d95a5;--green:#4fd18b;--green-ink:#0d3b26;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;--sans:"Archivo",system-ui,sans-serif;--serif:"Newsreader",Georgia,serif}
+@media (prefers-color-scheme:light){:root{--bg:#f4f5f8;--panel:#fff;--line:#dfe3ea;--ink:#12151b;--dim:#5b6373;--green:#1a7a4c;--green-ink:#e2f1e8}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 var(--serif)}
+a{color:inherit}.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0;font-family:var(--sans);font-size:14px}nav .brand{font-weight:800;font-size:18px;text-decoration:none;letter-spacing:-.02em}nav .links a{margin-left:18px;color:var(--dim);text-decoration:none}nav .links a:hover{color:var(--ink)}
+.hero{padding:56px 0 40px;border-bottom:1px solid var(--line)}.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--green)}
+h1{font-family:var(--sans);font-size:clamp(38px,6.4vw,66px);line-height:1.02;letter-spacing:-.03em;margin:14px 0 0;font-weight:800;max-width:15ch;text-wrap:balance}
+.deck{font-size:21px;max-width:58ch;color:var(--dim);margin:20px 0 0}.deck b{color:var(--ink);font-weight:500}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin:28px 0 0;font-family:var(--sans)}.btn{display:inline-block;padding:11px 16px;border:1px solid var(--line);text-decoration:none;font-weight:600;font-size:14px;border-radius:3px}.btn.primary{background:var(--green);color:var(--green-ink);border-color:var(--green)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin:34px 0 0;font-family:var(--sans)}.fact{background:var(--panel);padding:14px 16px}.fact .k{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}.fact .v{font-family:var(--mono);font-size:18px;margin-top:4px}
+section{padding:48px 0;border-bottom:1px solid var(--line)}h2{font-family:var(--sans);font-size:clamp(24px,3.2vw,32px);letter-spacing:-.02em;margin:0 0 8px}.lede{color:var(--dim);max-width:62ch;margin:0 0 26px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}.card{background:var(--panel);border:1px solid var(--line);padding:20px}.card h3{font-family:var(--sans);font-size:17px;margin:0 0 6px}.card p{margin:0;color:var(--dim);font-size:15.5px}.card .tag{font-family:var(--mono);font-size:11px;color:var(--green);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:8px}
+pre{background:var(--panel);border:1px solid var(--line);padding:16px;overflow-x:auto;font:13.5px/1.55 var(--mono);margin:0}code{font-family:var(--mono)}
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;font-family:var(--sans)}.flow div{background:var(--panel);border:1px solid var(--line);padding:16px}.flow .n{font-family:var(--mono);color:var(--green);font-size:12px}.flow h3{font-size:15px;margin:6px 0}.flow p{margin:0;color:var(--dim);font-size:14px;font-family:var(--serif)}
+footer{padding:28px 0 48px;color:var(--dim);font-family:var(--mono);font-size:12.5px;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav><a class="brand" href="/">Quiver</a><div class="links"><a href="#how">How it works</a><a href="#solvers">Solvers</a><a href="#contract">Contract</a><a href="https://github.com/nirholas/quiver">GitHub</a><a class="btn primary" href="/app.html">Open app</a></div></nav>
+
+<header class="hero">
+<div class="kicker">Robinhood Chain · eip155:4663 · intent settlement</div>
+<h1>Sign what you want. Solvers fight over how.</h1>
+<p class="deck">Quiver is the first aggregator on Robinhood Chain. One signature places an order that names the least you will accept; solvers compete in a 1.5-second auction to fill it across <b>Uniswap v2, v3 and v4</b>, and the winner earns twenty seconds of exclusivity. <b>QuiverSettlement</b> pulls your tokens through Permit2, runs the winner's route, and reverts unless you receive at least your minimum. No approvals per trade, no MEV surplus left on the table, no admin keys.</p>
+<div class="cta"><a class="btn primary" href="/app.html">Swap on Robinhood Chain</a><a class="btn" href="#solvers">Run a solver</a><a class="btn" href="https://github.com/nirholas/quiver">Read the source</a></div>
+<div class="facts">
+<div class="fact"><div class="k">Venues</div><div class="v">v2 · v3 · v4</div></div>
+<div class="fact"><div class="k">Signatures per trade</div><div class="v">1</div></div>
+<div class="fact"><div class="k">Auction</div><div class="v">1.5 s</div></div>
+<div class="fact"><div class="k">Exclusivity</div><div class="v">20 s</div></div>
+<div class="fact"><div class="k">Admin keys</div><div class="v">0</div></div>
+<div class="fact"><div class="k">License</div><div class="v">Apache-2.0</div></div>
+</div>
+</header>
+
+<section id="how">
+<h2>How a swap happens</h2>
+<p class="lede">The same shape as UniswapX and CoW, built for a chain whose stablecoin only speaks Permit2.</p>
+<div class="flow">
+<div><div class="n">1 · quote</div><h3>Aggregate on-chain</h3><p>Every v2 pair, v3 fee tier and v4 pool for the pair is quoted in one multicall, plus two-hop paths through WETH and USDG, plus a split across the two best venues.</p></div>
+<div><div class="n">2 · auction</div><h3>Solvers bid</h3><p>An RFQ goes to every connected solver. Each returns a signed bid: the buy amount it will guarantee. Best bid wins, and is shown to you next to the raw on-chain quote.</p></div>
+<div><div class="n">3 · sign</div><h3>One Permit2 witness</h3><p>You sign a Permit2 transfer whose witness is the order: sell amount, minimum buy, receiver, deadline, and the winner's exclusivity window. Nothing moves yet.</p></div>
+<div><div class="n">4 · settle</div><h3>Contract enforces the floor</h3><p>The solver submits your order with its route. The contract pulls, executes, measures the buy-token delta, and reverts if it is below your minimum. Unspent input goes back to you.</p></div>
+</div>
+</section>
+
+<section id="solvers">
+<h2>Solvers</h2>
+<p class="lede">Permissionless. The reference solver ships in the repo and is deliberately beatable.</p>
+<pre><code>git clone https://github.com/nirholas/quiver && cd quiver && pnpm install && pnpm -r build
+SOLVER_PRIVATE_KEY=0x... QUIVER_API_URL=https://api.quiver.dev pnpm solver
+# subscribes to /solvers/stream, bids on RFQs from the on-chain quote minus SOLVER_MARGIN_BPS,
+# simulates settle() and fills orders it won (or any unrestricted order)</code></pre>
+<div class="grid" style="margin-top:18px">
+<div class="card"><span class="tag">bid</span><h3>Signed bids, no stake</h3><p>A bid is a personal_sign over the RFQ id and amount. Winning costs nothing; failing to fill just hands the order to everyone else when exclusivity lapses.</p></div>
+<div class="card"><span class="tag">execute</span><h3>One UniversalRouter call per route</h3><p>Inputs are transferred to the router, every hop pays from the router balance, intermediates stay inside it, and the last hop pays the settlement contract. v2, v3 and v4 legs mix freely.</p></div>
+<div class="card"><span class="tag">compete</span><h3>Bring your own edge</h3><p>Private inventory, off-chain liquidity, cross-venue arbitrage: anything that delivers more than the on-chain quote wins the auction. The contract only cares that the seller's floor is met.</p></div>
+</div>
+</section>
+
+<section id="contract">
+<h2>QuiverSettlement</h2>
+<p class="lede">Non-upgradeable, no owner, no allowlist. Trust assumption: Permit2.</p>
+<pre><code>settle(Order order, uint256 permitNonce, uint256 permitDeadline, bytes signature, Interaction[] interactions)
+  Order { seller, sellToken, buyToken, sellAmount, minBuyAmount, receiver, deadline, exclusiveSolver, exclusiveUntil, appData }
+  - reverts unless msg.sender is exclusiveSolver while block.timestamp <= exclusiveUntil
+  - pulls sellAmount via Permit2 permitWitnessTransferFrom (witness = hashOrder(order))
+  - executes interactions from the contract (Permit2 itself is never a valid target)
+  - requires buyToken delta >= minBuyAmount; pays receiver (minus feeBps, 0 at launch); refunds unspent sellToken
+  cancel = Permit2.invalidateUnorderedNonces from the seller's wallet</code></pre>
+<p style="color:var(--dim);margin:14px 0 0">11 unit tests against the real Permit2 bytecode, a fuzz property that a solver can never keep buy tokens from the order it fills, and a fork test that settles a real Uniswap v3 swap on Robinhood Chain. Deploys deterministically to the same address on 4663 and 46630.</p>
+</section>
+
+<footer>Quiver · Apache-2.0 · github.com/nirholas/quiver · Built on Uniswap v2/v3/v4, the UniversalRouter and Permit2 on Robinhood Chain. Not affiliated with Robinhood or Uniswap Labs.</footer>
+</div>
+</body>
+</html>

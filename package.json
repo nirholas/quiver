@@ -1,0 +1,20 @@
+{
+  "name": "quiver",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Quiver: intent-based swap aggregation for Robinhood Chain. Users sign what they want, solvers compete on how, the contract enforces the limit.",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.32.1",
+  "engines": { "node": ">=22" },
+  "pnpm": { "onlyBuiltDependencies": ["better-sqlite3", "esbuild"] },
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' run build && pnpm -r --filter './apps/*' run build",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck",
+    "contracts:build": "cd contracts && forge build",
+    "contracts:test": "cd contracts && forge test -vv",
+    "api": "pnpm --filter @quiverdex/api start",
+    "solver": "pnpm --filter @quiverdex/solver start",
+    "web": "pnpm --filter @quiverdex/web dev"
+  }
+}

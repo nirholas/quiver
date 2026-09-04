@@ -1,0 +1,15 @@
+{
+  "name": "@quiverdex/sdk",
+  "version": "0.1.0",
+  "description": "Sign Quiver orders (one Permit2 witness signature), fetch quotes and RFQ bids from a Quiver API, submit, track and cancel.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md"],
+  "scripts": { "build": "tsc -p tsconfig.json", "test": "vitest run", "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "dependencies": { "@quiverdex/router": "workspace:*" },
+  "peerDependencies": { "viem": "^2.0.0" },
+  "devDependencies": { "typescript": "^5.7.3", "vitest": "^3.0.0", "viem": "^2.48.0" }
+}

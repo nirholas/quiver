@@ -1,0 +1,12 @@
+{
+  "name": "@quiverdex/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Quiver landing page and swap app. Static: serve the directory as-is.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "npx --yes serve -l 4701 .",
+    "build": "node -e \"require('fs').existsSync('index.html') && require('fs').existsSync('app.html') || process.exit(1)\"",
+    "test": "node -e \"process.exit(0)\""
+  }
+}
