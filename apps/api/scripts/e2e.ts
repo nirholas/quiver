@@ -11,7 +11,7 @@ import { spawn, execSync, type ChildProcess } from "node:child_process";
 import { createWalletClient, http, publicActions, parseEther, toHex, maxUint256, type Address } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { serve } from "@hono/node-server";
-import { CHAIN_ID, PERMIT2, USDG, WETH, erc20Abi } from "@quiverdex/router";
+import { CHAIN_ID, PERMIT2, PUBLIC_RPC_URLS, USDG, WETH, erc20Abi } from "@quiverdex/router";
 import { QuiverApi, signOrder, ZERO_ADDRESS, ZERO_BYTES32 } from "@quiverdex/sdk";
 import { ApiDb } from "../src/db.js";
 import { Bus } from "../src/bus.js";
@@ -33,10 +33,43 @@ function foundryBin(name: string): string {
 }
 
 
-const UPSTREAM = process.env.RHC_MAINNET_RPC_URL ?? "https://rpc.mainnet.chain.robinhood.com";
-const ANVIL_PORT = 8600 + Math.floor(Math.random() * 300);
+
+/**
+ * fetch() refuses the WHATWG "bad port" list (5060/5061 among them), so a randomly chosen harness port
+ * can make every request fail with `bad port`. Pick a port outside that list.
+ */
+const BLOCKED_PORTS = new Set([
+  1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95, 101, 102, 103, 104, 109, 110,
+  111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179, 389, 427, 465, 512, 513, 514, 515, 526, 530, 531, 532,
+  540, 548, 554, 556, 563, 587, 601, 636, 989, 990, 993, 995, 1719, 1720, 1723, 2049, 3659, 4045, 4102, 4137, 4190,
+  4444, 4445, 4786, 5060, 5061, 5104, 5106, 5107, 5111, 6000, 6566, 6665, 6666, 6667, 6668, 6669, 6679, 6697, 10080,
+]);
+function pickPort(base: number, span: number): number {
+  for (;;) {
+    const port = base + Math.floor(Math.random() * span);
+    if (!BLOCKED_PORTS.has(port)) return port;
+  }
+}
+
+/**
+ * Every public Robinhood Chain RPC rate limits, and anvil's fork backend fails the whole run on a 429.
+ * Probe the candidates in random order and fork from the first one that answers.
+ */
+async function pickUpstream(): Promise<string> {
+  const explicit = process.env.RHC_MAINNET_RPC_URL;
+  const candidates = explicit ? [explicit] : [...PUBLIC_RPC_URLS].sort(() => Math.random() - 0.5);
+  for (const url of candidates) {
+    try {
+      const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_blockNumber", params: [] }), signal: AbortSignal.timeout(8000) });
+      const j = (await r.json()) as { result?: string };
+      if (j.result) return url;
+    } catch { /* try the next one */ }
+  }
+  throw new Error("no Robinhood Chain RPC answered");
+}
+const ANVIL_PORT = pickPort(8600, 300);
 const ANVIL = `http://127.0.0.1:${ANVIL_PORT}`;
-const API_PORT = 4800 + Math.floor(Math.random() * 300);
+const API_PORT = pickPort(4800, 300);
 const children: ChildProcess[] = [];
 const kill = () => children.forEach((c) => c.kill("SIGKILL"));
 process.on("exit", kill);
@@ -52,8 +85,17 @@ const rpc = async (m: string, p: unknown[]) => {
 const step = (m: string) => console.log(`\n▸ ${m}`);
 
 async function main() {
-  step(`forking ${UPSTREAM} on :${ANVIL_PORT}`);
-  const anvil = spawn(foundryBin("anvil"), ["--fork-url", UPSTREAM, "--port", String(ANVIL_PORT), "--silent", "--chain-id", String(CHAIN_ID)], { stdio: "ignore" });
+  const upstream = await pickUpstream();
+  step(`forking ${upstream} on :${ANVIL_PORT}`);
+  const anvil = spawn(
+    foundryBin("anvil"),
+    [
+      "--fork-url", upstream, "--port", String(ANVIL_PORT), "--silent", "--chain-id", String(CHAIN_ID), "--accounts", "1",
+      // Public endpoints 429 under load; throttle the backend and let it retry rather than abort the run.
+      "--compute-units-per-second", "120", "--fork-retry-backoff", "2000", "--retries", "10", "--timeout", "45000",
+    ],
+    { stdio: "ignore" },
+  );
   children.push(anvil);
   for (let i = 0; i < 240; i++) { try { await rpc("eth_chainId", []); break; } catch { await new Promise((r) => setTimeout(r, 500)); } }
 

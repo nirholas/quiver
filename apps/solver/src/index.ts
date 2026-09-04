@@ -74,6 +74,9 @@ async function onOrder(payload: SerializedSignedOrder): Promise<void> {
   if (exclusive && o.exclusiveSolver.toLowerCase() !== account.address.toLowerCase() && Number(o.exclusiveUntil) >= nowSec) {
     return; // someone else's window; we can retry after it lapses
   }
+  // The stream and the periodic sweep can both deliver the same order; never re-simulate one that is no longer open.
+  const current = await api<{ status: string }>(`/orders/${signed.orderHash}`).catch(() => ({ status: "open" }));
+  if (current.status !== "open") return;
   const q = await quote(reader, o.sellToken, o.buyToken, o.sellAmount, { v4Pools: await v4PoolsFor(o.sellToken, o.buyToken) });
   const floor = (o.minBuyAmount * (10_000n + MARGIN_BPS)) / 10_000n;
   if (q.amountOut < floor) {

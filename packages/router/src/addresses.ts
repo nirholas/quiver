@@ -2,7 +2,12 @@
 export const CHAIN_ID = 4663;
 export const RPC_URL = "https://rpc.mainnet.chain.robinhood.com";
 /** Public endpoints that answered eth_chainId on 2026-09-04, official first. All rate-limit; the official one returns 429 under bursts. */
-export const PUBLIC_RPC_URLS: readonly string[] = [RPC_URL, "https://robinhood.drpc.org", "https://robinhood-rpc.publicnode.com"];
+export const PUBLIC_RPC_URLS: readonly string[] = [
+  RPC_URL,
+  "https://rpc-robinhood.blockmachine.io", // full archive reads + logs (2026-09-04)
+  "https://robinhood.api.pocket.network", // full archive reads + logs
+  "https://robinhood-rpc.publicnode.com", // no archive: fails as an anvil fork source
+];
 export const EXPLORER_URL = "https://robinhoodchain.blockscout.com";
 
 export const PERMIT2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;

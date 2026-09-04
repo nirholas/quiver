@@ -21,3 +21,7 @@
 | GET | `/stats` | | counters |
 
 The watcher polls `Settled` logs on the settlement contract and marks orders filled with the tx hash and delivered amount; orders past their deadline are marked expired.
+
+## Fork sources for the e2e
+
+`pnpm --filter @quiverdex/api e2e` forks mainnet with anvil. The official RPC rate-limits shared IPs (HTTP 429 during the genesis fetch), publicnode refuses archive reads, and dRPC's free endpoint only answers `eth_chainId`. `https://rpc-robinhood.blockmachine.io` and `https://robinhood.api.pocket.network` served full state and logs on 2026-09-04: `RHC_MAINNET_RPC_URL=https://rpc-robinhood.blockmachine.io pnpm --filter @quiverdex/api e2e`.

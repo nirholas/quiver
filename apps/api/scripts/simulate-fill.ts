@@ -12,7 +12,7 @@ import { signOrder, ZERO_ADDRESS, ZERO_BYTES32 } from "@quiverdex/sdk";
 const UP = process.env.RHC_MAINNET_RPC_URL ?? "https://rpc.mainnet.chain.robinhood.com";
 const PORT = 8300 + Math.floor(Math.random() * 300);
 const ANVIL = `http://127.0.0.1:${PORT}`;
-const anvil = spawn("anvil", ["--fork-url", UP, "--port", String(PORT), "--silent", "--chain-id", String(CHAIN_ID)], { stdio: "ignore" });
+const anvil = spawn("anvil", ["--fork-url", UP, "--port", String(PORT), "--silent", "--chain-id", String(CHAIN_ID), "--accounts", "1", "--compute-units-per-second", "150", "--fork-retry-backoff", "2000"], { stdio: "ignore" });
 const kill = () => anvil.kill("SIGKILL");
 process.on("exit", kill);
 const rpc = async (m: string, p: unknown[]) => { const r = await fetch(ANVIL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: m, params: p }) }); return ((await r.json()) as { result: unknown }).result; };
