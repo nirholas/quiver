@@ -3,6 +3,7 @@ import { createPublicClient, createWalletClient, http, publicActions, getAddress
 import { privateKeyToAccount } from "viem/accounts";
 import { CHAIN_ID, RPC_URL, buildInteractions, quote, settlementAbi, type PoolKey } from "@quiverdex/router";
 import { deserializeSignedOrder, type SerializedSignedOrder } from "@quiverdex/sdk";
+import { bidFor, fillFloor, mayFill } from "./math.js";
 
 /**
  * Quiver reference solver. Subscribes to the API's SSE stream, bids on RFQs from the on-chain quote minus
@@ -59,7 +60,7 @@ async function v4PoolsFor(tokenIn: Address, tokenOut: Address): Promise<PoolKey[
 async function onRfq(rfq: { rfqId: string; tokenIn: Address; tokenOut: Address; amountIn: string; expiresAt: number }): Promise<void> {
   const q = await quote(reader, rfq.tokenIn, rfq.tokenOut, BigInt(rfq.amountIn), { v4Pools: await v4PoolsFor(rfq.tokenIn, rfq.tokenOut) });
   if (q.amountOut === 0n) return;
-  const bid = (q.amountOut * (10_000n - MARGIN_BPS)) / 10_000n;
+  const bid = bidFor(q.amountOut, MARGIN_BPS);
   if (Date.now() > rfq.expiresAt) return;
   const signature = await client.signMessage({ message: `quiver-bid:${rfq.rfqId}:${bid}` });
   const res = await api<{ leading: boolean }>("/bids", { method: "POST", body: JSON.stringify({ rfqId: rfq.rfqId, amountOut: bid.toString(), solver: account.address, signature }) });
@@ -70,15 +71,12 @@ async function onOrder(payload: SerializedSignedOrder): Promise<void> {
   const signed = deserializeSignedOrder(payload);
   const o = signed.order;
   const nowSec = Math.floor(Date.now() / 1000);
-  const exclusive = o.exclusiveSolver.toLowerCase() !== "0x0000000000000000000000000000000000000000";
-  if (exclusive && o.exclusiveSolver.toLowerCase() !== account.address.toLowerCase() && Number(o.exclusiveUntil) >= nowSec) {
-    return; // someone else's window; we can retry after it lapses
-  }
+  if (!mayFill(o, account.address, nowSec)) return; // someone else's window; the sweep retries after it lapses
   // The stream and the periodic sweep can both deliver the same order; never re-simulate one that is no longer open.
   const current = await api<{ status: string }>(`/orders/${signed.orderHash}`).catch(() => ({ status: "open" }));
   if (current.status !== "open") return;
   const q = await quote(reader, o.sellToken, o.buyToken, o.sellAmount, { v4Pools: await v4PoolsFor(o.sellToken, o.buyToken) });
-  const floor = (o.minBuyAmount * (10_000n + MARGIN_BPS)) / 10_000n;
+  const floor = fillFloor(o.minBuyAmount, MARGIN_BPS);
   if (q.amountOut < floor) {
     console.log(`[solver] skip ${signed.orderHash}: quote ${q.amountOut} < floor ${floor}`);
     return;

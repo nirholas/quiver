@@ -1,4 +1,4 @@
-import { getAddress, keccak256, toHex, type Address, type Hex, type TypedDataDomain } from "viem";
+import { encodeAbiParameters, getAddress, keccak256, toHex, type Address, type Hex, type TypedDataDomain } from "viem";
 import { PERMIT2, CHAIN_ID } from "@quiverdex/router";
 
 export type Order = {
@@ -81,15 +81,30 @@ export function randomPermitNonce(): bigint {
   return BigInt(toHex(bytes));
 }
 
-/** keccak256 of the Order struct per ORDER_TYPEHASH, identical to QuiverSettlement.hashOrder. */
+/** EIP-712 typehash of the Order struct, identical to QuiverSettlement.ORDER_TYPEHASH. */
+export const ORDER_TYPEHASH: Hex = keccak256(
+  toHex(
+    "Order(address seller,address sellToken,address buyToken,uint256 sellAmount,uint256 minBuyAmount,address receiver,uint256 deadline,address exclusiveSolver,uint256 exclusiveUntil,bytes32 appData)",
+  ),
+);
+
+/**
+ * keccak256(abi.encode(ORDER_TYPEHASH, ...fields)), byte-identical to QuiverSettlement.hashOrder and to the
+ * Permit2 witness the seller signs. Built with viem's ABI encoder rather than hand-assembled hex so field
+ * padding cannot drift from the contract.
+ */
 export function hashOrder(order: Order): Hex {
-  const typehash = keccak256(
-    toHex("Order(address seller,address sellToken,address buyToken,uint256 sellAmount,uint256 minBuyAmount,address receiver,uint256 deadline,address exclusiveSolver,uint256 exclusiveUntil,bytes32 appData)"),
-  );
-  const enc = (v: bigint | number) => v.toString(16).padStart(64, "0");
-  const addr = (a: string) => a.slice(2).toLowerCase().padStart(64, "0");
   return keccak256(
-    `0x${typehash.slice(2)}${addr(order.seller)}${addr(order.sellToken)}${addr(order.buyToken)}${enc(order.sellAmount)}${enc(order.minBuyAmount)}${addr(order.receiver)}${enc(order.deadline)}${addr(order.exclusiveSolver)}${enc(order.exclusiveUntil)}${order.appData.slice(2).padStart(64, "0")}` as Hex,
+    encodeAbiParameters(
+      [
+        { type: "bytes32" }, { type: "address" }, { type: "address" }, { type: "address" }, { type: "uint256" },
+        { type: "uint256" }, { type: "address" }, { type: "uint256" }, { type: "address" }, { type: "uint256" }, { type: "bytes32" },
+      ],
+      [
+        ORDER_TYPEHASH, getAddress(order.seller), getAddress(order.sellToken), getAddress(order.buyToken), order.sellAmount,
+        order.minBuyAmount, getAddress(order.receiver), order.deadline, getAddress(order.exclusiveSolver), order.exclusiveUntil, order.appData,
+      ],
+    ),
   );
 }
 

@@ -6,7 +6,7 @@
 import { spawn, execSync } from "node:child_process";
 import { createWalletClient, createPublicClient, http, publicActions, parseEther, toHex, maxUint256, decodeErrorResult, encodeFunctionData, parseAbi, type Address, type Hex, type PublicClient } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { CHAIN_ID, PERMIT2, USDG, WETH, erc20Abi, settlementAbi, quote, buildInteractions } from "@quiverdex/router";
+import { CHAIN_ID, PERMIT2, USDG, WETH, erc20Abi, settlementAbi, routerErrorsAbi, quote, buildInteractions } from "@quiverdex/router";
 import { signOrder, ZERO_ADDRESS, ZERO_BYTES32 } from "@quiverdex/sdk";
 
 const UP = process.env.RHC_MAINNET_RPC_URL ?? "https://rpc.mainnet.chain.robinhood.com";
@@ -41,12 +41,7 @@ console.log("hashOrder ts == chain:", signed.orderHash.toLowerCase() === (onchai
 const q = await quote(pub, WETH, USDG, order.sellAmount, {});
 console.log("quote", q.amountOut, q.routes.map((r) => r.hops.map((h) => `${h.venue}${"fee" in h ? "/" + h.fee : ""}`).join(">")));
 
-const errAbi = [...settlementAbi, ...erc20Abi, ...parseAbi([
-  "error V3TooLittleReceived()", "error V3InvalidSwap()", "error V3InvalidCaller()", "error V3InvalidAmountOut()", "error V2TooLittleReceived()", "error V2InvalidPath()",
-  "error InvalidCommandType(uint256)", "error ExecutionFailed(uint256 commandIndex, bytes message)", "error TransactionDeadlinePassed()", "error InsufficientToken()", "error InsufficientETH()",
-  "error InvalidSigner()", "error SignatureExpired(uint256)", "error InvalidNonce()", "error InvalidSignatureLength()", "error LengthMismatch()", "error FromAddressIsNotOwner()",
-  "error InvalidEthSender()", "error BalanceTooLow()", "error UnsafeCast()", "error NotPoolManager()", "error CurrencyNotSettled()", "error DeltaNotPositive(address)", "error DeltaNotNegative(address)",
-])] as const;
+const errAbi = [...settlementAbi, ...erc20Abi, ...routerErrorsAbi] as const;
 function explain(e: unknown) {
   const msg = e instanceof Error ? e.message : String(e);
   console.log("  revert:", msg.split("\n").filter(Boolean).slice(0, 5).join(" | ").slice(0, 600));
@@ -55,13 +50,13 @@ function explain(e: unknown) {
     try {
       const d = decodeErrorResult({ abi: errAbi, data: h as Hex });
       console.log("  decoded:", d.errorName, d.args);
-      if (d.errorName === "InteractionFailed") {
-        const inner = (d.args as [bigint, Hex])[1];
+      if ((d.errorName as string) === "InteractionFailed") {
+        const inner = (d.args as unknown as [bigint, Hex])[1];
         try {
           const di = decodeErrorResult({ abi: errAbi, data: inner });
           console.log("  inner:", di.errorName, di.args);
-          if (di.errorName === "ExecutionFailed") {
-            const m2 = (di.args as [bigint, Hex])[1];
+          if ((di.errorName as string) === "ExecutionFailed") {
+            const m2 = (di.args as unknown as [bigint, Hex])[1];
             try { const d2 = decodeErrorResult({ abi: errAbi, data: m2 }); console.log("  inner2:", d2.errorName, d2.args); } catch { console.log("  inner2 raw:", m2.slice(0, 90)); }
           }
         } catch { console.log("  inner raw:", inner.slice(0, 120)); }

@@ -43,8 +43,75 @@ export const settlementAbi = parseAbi([
   "function hashOrder(Order order) pure returns (bytes32)",
   "function PERMIT2() view returns (address)",
   "function feeBps() view returns (uint256)",
-  "event Settled(bytes32 indexed orderHash, address indexed seller, address indexed solver, address sellToken, address buyToken, uint256 sellAmount, uint256 sellSpent, uint256 buyAmount, uint256 fee, address receiver, bytes32 appData)",
+  "event Settled(bytes32 indexed orderHash, address indexed seller, address indexed solver, address sellToken, address buyToken, uint256 sellSpent, uint256 buyAmount, uint256 fee)",
+  "event OrderTagged(bytes32 indexed orderHash, bytes32 indexed appData)",
+  "error OrderExpired()",
+  "error NotExclusiveSolver()",
+  "error SameToken()",
+  "error ZeroAmount()",
+  "error InteractionTargetForbidden(address target)",
+  "error InteractionFailed(uint256 index, bytes reason)",
+  "error LimitNotMet(uint256 received, uint256 minBuyAmount)",
+  "error InvalidFee()",
+  "error InvalidPermit2()",
+]);
+/** UniversalRouter, V3/V2 router modules, Permit2 and v4 errors, for decoding the bytes inside InteractionFailed. */
+export const routerErrorsAbi = parseAbi([
+  "error V3TooLittleReceived()", "error V3InvalidSwap()", "error V3InvalidCaller()", "error V3InvalidAmountOut()", "error V3TooMuchRequestedPerHop(uint256,uint256,uint256)",
+  "error V2TooLittleReceived()", "error V2InvalidPath()", "error InvalidCommandType(uint256)", "error ExecutionFailed(uint256 commandIndex, bytes message)",
+  "error TransactionDeadlinePassed()", "error InsufficientToken()", "error InsufficientETH()", "error SliceOutOfBounds()", "error LengthMismatch()", "error BalanceTooLow()",
+  "error InvalidSigner()", "error SignatureExpired(uint256)", "error InvalidNonce()", "error InvalidSignatureLength()",
+  "error CurrencyNotSettled()", "error DeltaNotPositive(address)", "error DeltaNotNegative(address)", "error NotPoolManager()",
 ]);
 export const poolManagerInitializeEvent = parseAbi([
   "event Initialize(bytes32 indexed id, address indexed currency0, address indexed currency1, uint24 fee, int24 tickSpacing, address hooks, uint160 sqrtPriceX96, int24 tick)",
+]);
+
+/**
+ * Every custom error a Quiver fill can revert with: the settlement contract's own, the UniversalRouter's
+ * (including Robinhood Chain's per-hop price guards), Permit2's, and v4's. Decoding a failed simulation
+ * against this tells a solver operator which leg failed instead of an opaque 4-byte selector.
+ */
+export const routerErrorsAbi = parseAbi([
+  // QuiverSettlement
+  "error InteractionFailed(uint256 index, bytes reason)",
+  "error InteractionTargetForbidden(address target)",
+  "error LimitNotMet(uint256 received, uint256 minBuyAmount)",
+  "error OrderExpired()",
+  "error NotExclusiveSolver()",
+  "error SameToken()",
+  "error ZeroAmount()",
+  "error InvalidPermit2()",
+  "error InvalidFee()",
+  // UniversalRouter
+  "error ExecutionFailed(uint256 commandIndex, bytes message)",
+  "error InvalidCommandType(uint256 commandType)",
+  "error SliceOutOfBounds()",
+  "error TransactionDeadlinePassed()",
+  "error LengthMismatch()",
+  "error InvalidEthSender()",
+  "error BalanceTooLow()",
+  "error InsufficientToken()",
+  "error InsufficientETH()",
+  // Uniswap v2/v3 modules
+  "error V2TooLittleReceived()",
+  "error V2InvalidPath()",
+  "error V3TooLittleReceived()",
+  "error V3TooMuchRequested()",
+  "error V3InvalidSwap()",
+  "error V3InvalidCaller()",
+  "error V3InvalidAmountOut()",
+  "error V3TooMuchRequestedPerHop(uint256 hopIndex, uint256 minPrice, uint256 price)",
+  // Permit2
+  "error InvalidSigner()",
+  "error InvalidNonce()",
+  "error SignatureExpired(uint256 signatureDeadline)",
+  "error InvalidSignatureLength()",
+  "error InvalidContractSignature()",
+  // v4
+  "error CurrencyNotSettled()",
+  "error DeltaNotPositive(address currency)",
+  "error DeltaNotNegative(address currency)",
+  "error NotPoolManager()",
+  "error UnsafeCast()",
 ]);
