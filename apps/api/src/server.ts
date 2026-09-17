@@ -8,6 +8,7 @@ import { deserializeSignedOrder, hashOrder, orderTypedData, type SerializedSigne
 import type { ApiConfig } from "./config.js";
 import type { ApiDb } from "./db.js";
 import type { Bus } from "./bus.js";
+import { canonicalAmount } from "./amount.js";
 
 export const VERSION = "0.1.0";
 
@@ -53,7 +54,7 @@ export function createApi({ cfg, db, bus, client, startedAt = Date.now() }: Serv
 
   app.get("/quote", async (c) => {
     const tokenIn = c.req.query("tokenIn"), tokenOut = c.req.query("tokenOut"), amountIn = c.req.query("amountIn");
-    if (!tokenIn || !tokenOut || !amountIn || !isAddress(tokenIn) || !isAddress(tokenOut) || !/^\d+$/.test(amountIn)) {
+    if (!tokenIn || !tokenOut || !amountIn || !isAddress(tokenIn) || !isAddress(tokenOut) || canonicalAmount(amountIn) === null) {
       return c.json({ error: "tokenIn, tokenOut (addresses) and amountIn (atomic integer) are required" }, 400);
     }
     const v4Pools = await v4PoolsFor(getAddress(tokenIn), getAddress(tokenOut));
@@ -63,7 +64,7 @@ export function createApi({ cfg, db, bus, client, startedAt = Date.now() }: Serv
 
   app.post("/rfq", async (c) => {
     const body = (await c.req.json().catch(() => null)) as { tokenIn?: string; tokenOut?: string; amountIn?: string; seller?: string } | null;
-    if (!body?.tokenIn || !body.tokenOut || !body.amountIn || !body.seller || !isAddress(body.tokenIn) || !isAddress(body.tokenOut) || !isAddress(body.seller) || !/^\d+$/.test(body.amountIn)) {
+    if (!body?.tokenIn || !body.tokenOut || !body.amountIn || !body.seller || !isAddress(body.tokenIn) || !isAddress(body.tokenOut) || !isAddress(body.seller) || canonicalAmount(body.amountIn) === null) {
       return c.json({ error: "tokenIn, tokenOut, amountIn, seller are required" }, 400);
     }
     const tokenIn = getAddress(body.tokenIn), tokenOut = getAddress(body.tokenOut);
@@ -87,9 +88,11 @@ export function createApi({ cfg, db, bus, client, startedAt = Date.now() }: Serv
   /** Solver bid: { rfqId, amountOut, solver, signature } where signature = personal_sign(`quiver-bid:${rfqId}:${amountOut}`). */
   app.post("/bids", async (c) => {
     const body = (await c.req.json().catch(() => null)) as { rfqId?: string; amountOut?: string; solver?: string; signature?: `0x${string}` } | null;
-    if (!body?.rfqId || !body.amountOut || !body.solver || !body.signature || !isAddress(body.solver) || !/^\d+$/.test(body.amountOut)) {
+    if (!body?.rfqId || !body.amountOut || !body.solver || !body.signature || !isAddress(body.solver)) {
       return c.json({ error: "rfqId, amountOut, solver, signature are required" }, 400);
     }
+    // The bid is signed over the literal string, so it is stored exactly as signed; only a canonical uint256 is accepted.
+    if (canonicalAmount(body.amountOut) !== body.amountOut) return c.json({ error: "amountOut must be a canonical uint256 decimal" }, 400);
     const rfq = db.getRfq(body.rfqId);
     if (!rfq) return c.json({ error: "unknown rfq" }, 404);
     if (Date.now() > rfq.expires_at) return c.json({ error: "bidding closed" }, 409);
@@ -129,7 +132,11 @@ export function createApi({ cfg, db, bus, client, startedAt = Date.now() }: Serv
     }
     if (db.getOrder(signed.orderHash)) return c.json({ error: "duplicate order" }, 409);
     db.insertOrder(body, body.rfqId ?? null, now());
-    bus.publish({ type: "order", order: body });
+    // The order may already have been settled on-chain before it reached us; if the watcher saw that fill,
+    // apply it now rather than advertising a filled order to solvers who would burn gas on a reverting fill.
+    const settled = db.reconcileSettlement(signed.orderHash);
+    if (settled) bus.publish({ type: "filled", orderHash: signed.orderHash.toLowerCase(), txHash: settled.tx_hash, solver: settled.solver });
+    else bus.publish({ type: "order", order: body });
     return c.json(orderView(db.getOrder(signed.orderHash)!), 201);
   });
 

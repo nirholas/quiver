@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { SerializedSignedOrder } from "@quiverdex/sdk";
+import { compareAmounts } from "./amount.js";
 
 export type RfqRow = {
   id: string; token_in: string; token_out: string; amount_in: string; seller: string;
@@ -14,6 +15,9 @@ export type OrderRow = {
   exclusive_solver: string | null; exclusive_until: number; deadline: number; rfq_id: string | null; json: string;
   status: "open" | "filled" | "expired" | "cancelled" | "failed"; tx_hash: string | null; buy_amount: string | null; solver: string | null;
   fail_reason: string | null; created_at: number; updated_at: number;
+};
+export type SettlementRow = {
+  order_hash: string; tx_hash: string; solver: string; buy_amount: string; block: number; log_index: number; observed_at: number; applied: number;
 };
 export type SolverRow = { address: string; name: string; registered_at: number; last_seen: number; bids: number; fills: number };
 
@@ -52,6 +56,11 @@ export class ApiDb {
         scanned_to INTEGER NOT NULL, PRIMARY KEY (pair, fee, tick_spacing, hooks)
       );
       CREATE TABLE IF NOT EXISTS watch_cursor (k TEXT PRIMARY KEY, block INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS settlements (
+        order_hash TEXT PRIMARY KEY, tx_hash TEXT NOT NULL, solver TEXT NOT NULL, buy_amount TEXT NOT NULL,
+        block INTEGER NOT NULL, log_index INTEGER NOT NULL, observed_at INTEGER NOT NULL, applied INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS settlements_pending ON settlements(applied);
     `);
   }
 
@@ -69,8 +78,15 @@ export class ApiDb {
       ON CONFLICT(rfq_id, solver) DO UPDATE SET amount_out = excluded.amount_out, received_at = excluded.received_at`).run({ ...b, solver: b.solver.toLowerCase() });
     this.db.prepare(`UPDATE solvers SET bids = bids + 1, last_seen = ? WHERE address = ?`).run(b.received_at, b.solver.toLowerCase());
   }
+  /**
+   * Bids for an RFQ, best first. Ordering is done with BigInt rather than in SQL: `CAST(amount_out AS INTEGER)`
+   * saturates at the signed 64-bit maximum, which silently ties every bid above ~9.22 whole 18-decimal tokens
+   * and can hand the exclusive window to a solver that did not offer the best fill.
+   * Equal amounts are broken by arrival time, then solver address, so the winner is deterministic.
+   */
   bids(rfqId: string): BidRow[] {
-    return this.db.prepare(`SELECT * FROM bids WHERE rfq_id = ? ORDER BY CAST(amount_out AS INTEGER) DESC`).all(rfqId) as BidRow[];
+    const rows = this.db.prepare(`SELECT * FROM bids WHERE rfq_id = ?`).all(rfqId) as BidRow[];
+    return rows.sort((a, b) => compareAmounts(b.amount_out, a.amount_out) || a.received_at - b.received_at || a.solver.localeCompare(b.solver));
   }
 
   insertOrder(o: SerializedSignedOrder, rfqId: string | null, now: number): void {
@@ -94,9 +110,41 @@ export class ApiDb {
   recentOrders(limit = 50): OrderRow[] {
     return this.db.prepare(`SELECT * FROM orders ORDER BY created_at DESC LIMIT ?`).all(limit) as OrderRow[];
   }
-  markFilled(hash: string, txHash: string, buyAmount: string, solver: string, now: number): void {
-    this.db.prepare(`UPDATE orders SET status = 'filled', tx_hash = ?, buy_amount = ?, solver = ?, updated_at = ? WHERE order_hash = ? AND status = 'open'`).run(txHash, buyAmount, solver.toLowerCase(), now, hash.toLowerCase());
-    this.db.prepare(`UPDATE solvers SET fills = fills + 1 WHERE address = ?`).run(solver.toLowerCase());
+  /**
+   * Records an observed on-chain settlement and applies it to the order when that order is known.
+   * The row is kept even when the order has not been submitted to the API yet, so the watcher can advance
+   * its cursor without losing the proof that the order was filled. Returns the settlement when THIS call
+   * moved the order to filled, so the caller can publish exactly one `filled` event.
+   */
+  recordSettlement(s: Omit<SettlementRow, "applied">): SettlementRow | undefined {
+    const hash = s.order_hash.toLowerCase();
+    return this.db.transaction(() => {
+      this.db.prepare(`INSERT INTO settlements (order_hash, tx_hash, solver, buy_amount, block, log_index, observed_at)
+        VALUES (@order_hash, @tx_hash, @solver, @buy_amount, @block, @log_index, @observed_at)
+        ON CONFLICT(order_hash) DO NOTHING`).run({ ...s, order_hash: hash, solver: s.solver.toLowerCase() });
+      return this.applySettlement(hash);
+    })();
+  }
+
+  /** Applies a settlement observed earlier for an order that has only now been submitted. */
+  reconcileSettlement(hash: string): SettlementRow | undefined {
+    return this.db.transaction(() => this.applySettlement(hash.toLowerCase()))();
+  }
+
+  /**
+   * Moves a known order to filled from a stored settlement, exactly once. On-chain settlement is ground
+   * truth, so it overrides a locally guessed status (an order the watcher expired while it was unmatched)
+   * but never re-applies to an order already marked filled, which would double-count the solver's fills.
+   */
+  private applySettlement(hash: string): SettlementRow | undefined {
+    const s = this.db.prepare(`SELECT * FROM settlements WHERE order_hash = ? AND applied = 0`).get(hash) as SettlementRow | undefined;
+    if (!s) return undefined;
+    const changes = this.db.prepare(`UPDATE orders SET status = 'filled', tx_hash = ?, buy_amount = ?, solver = ?, fail_reason = NULL, updated_at = ? WHERE order_hash = ? AND status != 'filled'`)
+      .run(s.tx_hash, s.buy_amount, s.solver, s.observed_at, hash).changes;
+    if (changes === 0) return undefined;
+    this.db.prepare(`UPDATE settlements SET applied = 1 WHERE order_hash = ?`).run(hash);
+    this.db.prepare(`UPDATE solvers SET fills = fills + 1 WHERE address = ?`).run(s.solver);
+    return { ...s, applied: 1 };
   }
   markStatus(hash: string, status: OrderRow["status"], now: number, reason?: string): void {
     this.db.prepare(`UPDATE orders SET status = ?, fail_reason = COALESCE(?, fail_reason), updated_at = ? WHERE order_hash = ? AND status = 'open'`).run(status, reason ?? null, now, hash.toLowerCase());
@@ -140,6 +188,7 @@ export class ApiDb {
       open: one(`SELECT COUNT(*) AS n FROM orders WHERE status = 'open'`),
       rfqs: one(`SELECT COUNT(*) AS n FROM rfqs`),
       solvers: one(`SELECT COUNT(*) AS n FROM solvers`),
+      unmatchedSettlements: one(`SELECT COUNT(*) AS n FROM settlements WHERE applied = 0`),
     };
   }
 

@@ -52,6 +52,8 @@ Properties, all covered by tests: the seller cannot be debited more than `sellAm
 
 `POST /rfq` quotes the pair on-chain (the baseline), broadcasts the RFQ to connected solvers, waits `QUIVER_RFQ_WINDOW_MS` (1500 ms), and returns the bids. Bids are `personal_sign("quiver-bid:<rfqId>:<amountOut>")` by the solver key, so a bid cannot be forged. The best bid's solver becomes `exclusiveSolver` in the order the seller signs, with `exclusiveUntil = now + QUIVER_EXCLUSIVITY_SECONDS` (20). If the winner does not fill inside its window, any solver may. If nobody bids, the app places an unrestricted order at the on-chain quote minus slippage.
 
+Bids are ranked by uint256 value. Atomic amounts pass the signed 64-bit range at ten whole tokens of an 18-decimal asset, so any numeric comparison that narrows them would tie real bids together and could hand the exclusive window to a solver who did not offer the best fill.
+
 The auction is off-chain and the API is not trusted: the seller sees the winning bid, sets `minBuyAmount` from it, and the contract holds the solver to that number.
 
 ## Routing
