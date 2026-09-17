@@ -53,6 +53,10 @@ pnpm web                                    # http://localhost:4701/app.html
 | Uniswap v4 PoolManager / V4Quoter / StateView | `0x8366A39cC670b4001a1121b8F6A443A643E40951` / `0x8dC178Efb8111Bb0973dD9d722EbEff267c98F94` / `0xf3334192d15450cDD385C8b70e03f9a6Bd9E673b` |
 | WETH / USDG | `0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73` / `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` |
 
+## Thanks
+
+[@chenshj73](https://github.com/chenshj73) found and reported both of the correctness bugs fixed in the RFQ and settlement paths: uint256 bid amounts being ranked through a saturating 64-bit cast ([#1](https://github.com/nirholas/quiver/issues/1)), and `Settled` logs being dropped when they arrive before the order reaches the API ([#2](https://github.com/nirholas/quiver/issues/2)). Both reports traced the failure from the contract through the API to the effect on solvers, which is what made them quick to confirm and fix. Thank you.
+
 ## License
 
 Apache-2.0. Not affiliated with Robinhood Markets or Uniswap Labs.
