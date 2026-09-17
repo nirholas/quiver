@@ -20,10 +20,13 @@ export class Watcher {
       const now = Math.floor(Date.now() / 1000);
       for (const l of logs) {
         const hash = l.args.orderHash!.toLowerCase();
-        if (this.db.getOrder(hash)) {
-          this.db.markFilled(hash, l.transactionHash!, l.args.buyAmount!.toString(), l.args.solver!, now);
-          this.bus.publish({ type: "filled", orderHash: hash, txHash: l.transactionHash!, solver: l.args.solver! });
-        }
+        // settle() is permissionless, so a fill can land before the signed order reaches /orders. Persist every
+        // settlement, matched or not, because the cursor moves past this range and the log is never re-read.
+        const applied = this.db.recordSettlement({
+          order_hash: hash, tx_hash: l.transactionHash!, solver: l.args.solver!, buy_amount: l.args.buyAmount!.toString(),
+          block: Number(l.blockNumber ?? 0n), log_index: l.logIndex ?? 0, observed_at: now,
+        });
+        if (applied) this.bus.publish({ type: "filled", orderHash: hash, txHash: applied.tx_hash, solver: applied.solver });
       }
       this.db.setCursor("settled", head);
     }

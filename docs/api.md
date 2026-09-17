@@ -22,6 +22,10 @@
 
 The watcher polls `Settled` logs on the settlement contract and marks orders filled with the tx hash and delivered amount; orders past their deadline are marked expired.
 
+`settle()` is permissionless, so an order can be filled on-chain before its signed payload ever reaches the API. Every `Settled` log is therefore stored, whether or not the order is known, and applied to the order the moment it is submitted: `POST /orders` answers `filled` for such an order rather than advertising it to solvers. On-chain settlement is ground truth, so a fill seen after the API already expired an order (a lagging node, a watcher that was down) corrects it to filled, and a re-scanned log never counts a solver's fill twice. `GET /stats` reports the backlog as `unmatchedSettlements`, which is the count of observed fills whose order has not been submitted.
+
+Bid amounts are compared as uint256 values, not as SQLite or JavaScript numbers, so a bid is only rejected for being too large above `2^256 - 1`. `amountOut` must be canonical decimal (no leading zeros, no exponent), because the bid signature covers that exact string. Equal bids are ranked by arrival time.
+
 ## Fork sources for the e2e
 
 `pnpm --filter @quiverdex/api e2e` forks mainnet with anvil. The official RPC rate-limits shared IPs (HTTP 429 during the genesis fetch), publicnode refuses archive reads, and dRPC's free endpoint only answers `eth_chainId`. `https://rpc-robinhood.blockmachine.io` and `https://robinhood.api.pocket.network` served full state and logs on 2026-09-04: `RHC_MAINNET_RPC_URL=https://rpc-robinhood.blockmachine.io pnpm --filter @quiverdex/api e2e`.
