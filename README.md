@@ -60,3 +60,7 @@ pnpm web                                    # http://localhost:4701/app.html
 ## License
 
 Apache-2.0. Not affiliated with Robinhood Markets or Uniswap Labs.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=nirholas/quiver&type=Date)](https://www.star-history.com/#nirholas/quiver&Date)
