@@ -1,5 +1,10 @@
 # Quiver 
 
+<!-- three.ws:badges -->
+[![GitHub stars](https://img.shields.io/github/stars/nirholas/quiver?style=flat&logo=github)](https://github.com/nirholas/quiver/stargazers) [![Last commit](https://img.shields.io/github/last-commit/nirholas/quiver?style=flat)](https://github.com/nirholas/quiver/commits) [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat)](https://github.com/nirholas/quiver/pulls) [![AI agent friendly](https://img.shields.io/badge/AI%20agents-AGENTS.md%20%2B%20llms.txt-6d5dfc?style=flat)](https://github.com/nirholas/quiver/blob/HEAD/AGENTS.md)
+<!-- /three.ws:badges -->
+
+
 **Intent-based swap aggregation for Robinhood Chain (`eip155:4663`).** Users sign what they want, solvers compete on how, and `QuiverSettlement` enforces the seller's minimum on-chain. Routes span Uniswap v2, v3 and v4 (the three venues with real liquidity on the chain), and a swap is one signature: a Permit2 witness transfer whose witness is the order.
 
 There was no aggregator on Robinhood Chain before this. Every bot and vault hardcoded a single Uniswap pool. Quiver is the routing layer the rest of the register (vaults, keepers, index rebalancers) can build on.
@@ -64,3 +69,26 @@ Apache-2.0. Not affiliated with Robinhood Markets or Uniswap Labs.
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=nirholas/quiver&type=Date)](https://www.star-history.com/#nirholas/quiver&Date)
+
+<!-- three.ws:growth -->
+## Support the project
+
+If quiver saves you time, **[star it on GitHub](https://github.com/nirholas/quiver)**. Stars are how other developers and AI agents find the repositories worth trusting, and they cost you one click.
+
+Know someone who would use it? [Post on X](https://twitter.com/intent/tweet?text=quiver%3A%20Intent-based%20swap%20aggregation%20for%20Robinhood%20Chain%3A%20one-signature%20Permit2%20orders%2C%20solver%20auctions&url=https%3A%2F%2Fgithub.com%2Fnirholas%2Fquiver) · [Share on Bluesky](https://bsky.app/intent/compose?text=quiver%3A%20Intent-based%20swap%20aggregation%20for%20Robinhood%20Chain%3A%20one-signature%20Permit2%20orders%2C%20solver%20auctions%20https%3A%2F%2Fgithub.com%2Fnirholas%2Fquiver) · [Share on LinkedIn](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fgithub.com%2Fnirholas%2Fquiver) · [Submit to Hacker News](https://news.ycombinator.com/submitlink?u=https%3A%2F%2Fgithub.com%2Fnirholas%2Fquiver&t=quiver%3A%20Intent-based%20swap%20aggregation%20for%20Robinhood%20Chain%3A%20one-signature%20Permit2%20orders%2C%20solver%20auctions) · [Share on Reddit](https://www.reddit.com/submit?url=https%3A%2F%2Fgithub.com%2Fnirholas%2Fquiver&title=quiver%3A%20Intent-based%20swap%20aggregation%20for%20Robinhood%20Chain%3A%20one-signature%20Permit2%20orders%2C%20solver%20auctions)
+
+## Built for AI agents too
+
+Coding agents and LLM tooling can read this repo directly: [AGENTS.md](./AGENTS.md), [llms.txt](./llms.txt), [llms-full.txt](./llms-full.txt). Point an agent at `https://github.com/nirholas/quiver` and it has the context it needs.
+
+## More from the same author
+
+- [All repositories by nirholas](https://github.com/nirholas/nirholas#readme): the full catalog, grouped by topic
+- [three.ws](https://three.ws): the platform for 3D AI agents with Solana wallets, a skill marketplace and x402 payments
+- Questions or ideas: [open an issue](https://github.com/nirholas/quiver/issues) or [start a discussion](https://github.com/nirholas/quiver/discussions)
+
+## Contributors
+
+[![Contributors](https://contrib.rocks/image?repo=nirholas/quiver)](https://github.com/nirholas/quiver/graphs/contributors)
+
+<!-- /three.ws:growth -->

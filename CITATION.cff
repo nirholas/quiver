@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: If you use this software, please cite it as below.
+title: "quiver"
+abstract: "Intent-based swap aggregation for Robinhood Chain: one-signature Permit2 orders, solver auctions, Uniswap v2/v3/v4 routing, on-chain limit enforcement."
+repository-code: "https://github.com/nirholas/quiver"
+url: "https://three.ws"
+authors:
+  - name: three.ws
+    website: "https://three.ws"

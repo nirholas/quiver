@@ -1,0 +1,26 @@
+# quiver
+
+> Intent-based swap aggregation for Robinhood Chain: one-signature Permit2 orders, solver auctions, Uniswap v2/v3/v4 routing, on-chain limit enforcement.
+
+quiver is an open-source repository by nirholas, part of the three.ws ecosystem.
+
+## Docs
+
+- [README](https://github.com/nirholas/quiver/blob/HEAD/README.md): install, usage and reference
+- [What is in the box](https://github.com/nirholas/quiver/blob/HEAD/README.md#what-is-in-the-box)
+- [Quickstart](https://github.com/nirholas/quiver/blob/HEAD/README.md#quickstart)
+- [Protocol in one paragraph](https://github.com/nirholas/quiver/blob/HEAD/README.md#protocol-in-one-paragraph)
+- [Addresses (Robinhood Chain mainnet, verified on-chain)](https://github.com/nirholas/quiver/blob/HEAD/README.md#addresses-robinhood-chain-mainnet-verified-on-chain)
+- [Thanks](https://github.com/nirholas/quiver/blob/HEAD/README.md#thanks)
+- [License](https://github.com/nirholas/quiver/blob/HEAD/README.md#license)
+- [AGENTS.md](https://github.com/nirholas/quiver/blob/HEAD/AGENTS.md): guidance for coding agents
+- [Full text for LLMs](https://github.com/nirholas/quiver/blob/HEAD/llms-full.txt): the README inlined
+
+## Project
+
+- [Source](https://github.com/nirholas/quiver)
+- [Issues](https://github.com/nirholas/quiver/issues)
+- [Discussions](https://github.com/nirholas/quiver/discussions)
+- [Homepage](https://three.ws)
+- [three.ws](https://three.ws): the platform this is part of
+- [All repositories by nirholas](https://github.com/nirholas/nirholas#readme)
