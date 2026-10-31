@@ -151,9 +151,9 @@ contract QuiverSettlement is ReentrancyGuard {
     function _payout(Order calldata order, uint256 buyBefore) internal returns (uint256 buyAmount, uint256 fee) {
         IERC20 buyToken = IERC20(order.buyToken);
         uint256 received = buyToken.balanceOf(address(this)) - buyBefore;
-        if (received < order.minBuyAmount) revert LimitNotMet(received, order.minBuyAmount);
         fee = (received * feeBps) / 10_000;
         buyAmount = received - fee;
+        if (buyAmount < order.minBuyAmount) revert LimitNotMet(buyAmount, order.minBuyAmount);
         if (fee > 0) buyToken.safeTransfer(feeRecipient, fee);
         buyToken.safeTransfer(order.receiver, buyAmount);
     }

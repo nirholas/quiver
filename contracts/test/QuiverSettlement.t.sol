@@ -175,6 +175,16 @@ contract QuiverSettlementTest is Test {
         assertEq(got, 2_497_500_000_000_000);
     }
 
+    function test_limitEnforcedOnNetPayoutAfterFee() public {
+        // Gross 2_500_000_000_000_000 clears the floor, but the receiver would net 2_497_500_000_000_000.
+        QuiverSettlement.Order memory o = _order(2_499_000_000_000_000, address(0), 0);
+        bytes memory sig = _sign(feeSettlement, o, 12, block.timestamp + 1 hours);
+        vm.prank(solver);
+        vm.expectRevert(abi.encodeWithSelector(QuiverSettlement.LimitNotMet.selector, 2_497_500_000_000_000, 2_499_000_000_000_000));
+        feeSettlement.settle(o, 12, block.timestamp + 1 hours, sig, _swapVia(feeSettlement, 1 ether, 25));
+        assertEq(weth.balanceOf(seller), 10 ether);
+    }
+
     function testFuzz_solverCannotKeepBuyTokensFromThisOrder(uint256 rateBps) public {
         rateBps = bound(rateBps, 1, 100);
         uint256 expected = (1 ether * rateBps) / 10_000;
