@@ -1,0 +1,10 @@
+{
+  "name": "quiver-swap",
+  "version": "0.1.0",
+  "description": "Quote, sign and track Quiver intent-based swap orders on Robinhood Chain with the @quiverdex/sdk and the Quiver HTTP API.",
+  "author": {"name": "nirholas"},
+  "repository": "https://github.com/nirholas/quiver",
+  "license": "Apache-2.0",
+  "homepage": "https://three.ws",
+  "keywords": ["swap", "intents", "permit2", "solver", "robinhood-chain", "uniswap", "defi"]
+}
